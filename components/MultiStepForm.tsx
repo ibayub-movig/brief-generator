@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2, X } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -16,6 +16,11 @@ interface BrandDetails {
       src: string;
     }>;
   }>;
+}
+
+interface Suggestion {
+  domain: string;
+  logo?: string;
 }
 
 const campaignGoals = [
@@ -31,7 +36,8 @@ export default function MultiStepForm() {
   const [email, setEmail] = useState('')
   const [website, setWebsite] = useState('')
   const [companyName, setCompanyName] = useState('')
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [brandDetails, setBrandDetails] = useState<BrandDetails | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -53,7 +59,11 @@ export default function MultiStepForm() {
           }
           const data = await response.json()
           if (Array.isArray(data)) {
-            setSuggestions(data.map(item => item.domain))
+            setSuggestions(data.map(item => ({
+              domain: item.domain,
+              logo: item.logo
+            })))
+            setShowSuggestions(true)
           } else {
             throw new Error('Unexpected data format')
           }
@@ -64,6 +74,7 @@ export default function MultiStepForm() {
         }
       } else {
         setSuggestions([])
+        setShowSuggestions(false)
       }
     }
 
@@ -74,9 +85,16 @@ export default function MultiStepForm() {
     return () => clearTimeout(debounce)
   }, [website])
 
-  const handleWebsiteSelect = (selected: string) => {
-    setWebsite(selected)
-    setSuggestions([])
+  const handleWebsiteSelect = (selected: Suggestion) => {
+    setWebsite(selected.domain)
+    setCompanyName(selected.domain.split('.')[0]) // Simple way to set company name, adjust as needed
+    setShowSuggestions(false)
+  }
+
+  const handleClearWebsite = () => {
+    setWebsite('')
+    setCompanyName('')
+    setShowSuggestions(false)
   }
 
   const handleFillDetails = async () => {
@@ -136,8 +154,8 @@ export default function MultiStepForm() {
   return (
     <Card className="w-[600px]">
       <CardHeader>
-        <CardTitle>Movig UGC Campaign Brief Generator</CardTitle>
-        <CardDescription>Instantly create a brief in google docs</CardDescription>
+        <CardTitle className="text-3xl font-bold">Movig UGC Campaign Brief Generator</CardTitle>
+        <CardDescription className="text-lg">Instantly create a brief in google docs</CardDescription>
       </CardHeader>
       <CardContent>
         {error && (
@@ -150,22 +168,24 @@ export default function MultiStepForm() {
         {step === 1 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Your Name</Label>
+              <Label htmlFor="name" className="text-lg font-semibold">Your Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
+                className="text-lg"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Your Email</Label>
+              <Label htmlFor="email" className="text-lg font-semibold">Your Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
+                className="text-lg"
               />
             </div>
           </div>
@@ -173,73 +193,52 @@ export default function MultiStepForm() {
         {step === 2 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="website">Company Website</Label>
-              <Input
-                id="website"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="Enter company website"
-              />
-              {suggestions.length > 0 && (
+              <Label htmlFor="website" className="text-lg font-semibold">Company Website</Label>
+              <div className="relative">
+                <Input
+                  id="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="Enter company website"
+                  className="text-lg"
+                />
+                {website && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                    onClick={handleClearWebsite}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {showSuggestions && suggestions.length > 0 && (
                 <ul className="mt-2 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white">
                   {suggestions.map((suggestion, index) => (
+                    
                     <li
                       key={index}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
                       onClick={() => handleWebsiteSelect(suggestion)}
                     >
-                      {suggestion}
+                      {suggestion.logo && (
+                        <img src={suggestion.logo} alt="Logo" className="w-6 h-6 mr-2" />
+                      )}
+                      {suggestion.domain}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
+              <Label htmlFor="companyName" className="text-lg font-semibold">Company Name</Label>
               <Input
                 id="companyName"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Company name will auto-populate"
-                readOnly
-              />
-            </div>
-          </div>
-        )}
-        {step === 2 && brandDetails && (
-          <div className="space-y-4 mt-4">
-            <div className="flex justify-center">
-              {brandDetails.logos && brandDetails.logos[0] && (
-                <img src={brandDetails.logos[0].formats[0].src} alt="Brand Logo" className="max-h-32" />
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={brandDetails.description}
-                onChange={(e) => setBrandDetails({...brandDetails, description: e.target.value})}
-                rows={4}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="targetAudience">Target Audience</Label>
-              <Textarea
-                id="targetAudience"
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value)}
-                rows={2}
-                placeholder="Describe your target audience"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="keyCallouts">Key Callouts</Label>
-              <Textarea
-                id="keyCallouts"
-                value={keyCallouts}
-                onChange={(e) => setKeyCallouts(e.target.value)}
-                rows={2}
-                placeholder="Enter key callouts"
+                className="text-lg"
               />
             </div>
           </div>
@@ -247,7 +246,7 @@ export default function MultiStepForm() {
         {step === 3 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Campaign Goal</Label>
+              <Label className="text-lg font-semibold">Campaign Goal</Label>
               {campaignGoals.map((goal) => (
                 <div className="flex items-center space-x-2" key={goal.id}>
                   <Checkbox
@@ -263,7 +262,7 @@ export default function MultiStepForm() {
                   />
                   <label
                     htmlFor={goal.id}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    className="text-lg font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     {goal.label}
                   </label>
@@ -274,48 +273,50 @@ export default function MultiStepForm() {
                   value={otherGoal}
                   onChange={(e) => setOtherGoal(e.target.value)}
                   placeholder="Enter other goal"
-                  className="mt-2"
+                  className="mt-2 text-lg"
                 />
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="deliverables">Deliverables</Label>
+              <Label htmlFor="deliverables" className="text-lg font-semibold">Deliverables</Label>
               <Textarea
                 id="deliverables"
                 value={deliverables}
                 onChange={(e) => setDeliverables(e.target.value)}
                 rows={2}
                 placeholder="Enter deliverables"
+                className="text-lg"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="creatorProfiles">Creator Profiles</Label>
+              <Label htmlFor="creatorProfiles" className="text-lg font-semibold">Creator Profiles</Label>
               <Textarea
                 id="creatorProfiles"
                 value={creatorProfiles}
                 onChange={(e) => setCreatorProfiles(e.target.value)}
                 rows={2}
                 placeholder="Describe creator profiles"
+                className="text-lg"
               />
             </div>
           </div>
         )}
         {step === 4 && (
           <div className="space-y-4">
-            <Label>Generated Brief</Label>
-            <Textarea value={generatedBrief} readOnly rows={10} />
+            <Label className="text-lg font-semibold">Generated Brief</Label>
+            <Textarea value={generatedBrief} readOnly rows={10} className="text-lg" />
           </div>
         )}
       </CardContent>
       <CardFooter>
         {step === 1 && (
-          <Button onClick={() => setStep(2)} disabled={!name || !email}>
+          <Button onClick={() => setStep(2)} disabled={!name || !email} className="w-full text-lg">
             Get Started
           </Button>
         )}
         {step === 2 && (
           <>
-            <Button onClick={handleFillDetails} disabled={!website || isLoading}>
+            <Button onClick={handleFillDetails} disabled={!website || isLoading} className="w-full text-lg">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -326,19 +327,19 @@ export default function MultiStepForm() {
               )}
             </Button>
             {brandDetails && (
-              <Button onClick={() => setStep(3)} className="ml-2">
+              <Button onClick={() => setStep(3)} className="ml-2 w-full text-lg">
                 Campaign Details
               </Button>
             )}
           </>
         )}
         {step === 3 && (
-          <Button onClick={handleCreateBrief} disabled={selectedGoals.length === 0 || !deliverables || !creatorProfiles}>
+          <Button onClick={handleCreateBrief} disabled={selectedGoals.length === 0 || !deliverables || !creatorProfiles} className="w-full text-lg">
             Create Brief
           </Button>
         )}
         {step === 4 && (
-          <Button onClick={() => navigator.clipboard.writeText(generatedBrief)}>
+          <Button onClick={() => navigator.clipboard.writeText(generatedBrief)} className="w-full text-lg">
             Copy to Clipboard
           </Button>
         )}
